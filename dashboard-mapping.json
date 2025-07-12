@@ -1,0 +1,36 @@
+{
+  "description": "Dashboard filename to UID mapping configuration",
+  "version": "1.0.0",
+  "mappings": {
+    "DSM918+-1752302186913.json": {
+      "uid": "enhanced-synology-nas",
+      "title": "DSM918+",
+      "description": "Enhanced Synology Dashboard with comprehensive monitoring using snmp.yml",
+      "tags": ["synology", "nas", "snmp", "enhanced"]
+    },
+    "Ubuntu-R630-1752302225577.json": {
+      "uid": "enhanced-ubuntu-server", 
+      "title": "Ubuntu-R630",
+      "description": "Enhanced Ubuntu Server Dashboard with comprehensive monitoring using Node Exporter",
+      "tags": ["ubuntu", "linux", "node-exporter", "system-monitoring"]
+    },
+    "Windows-Enigma-R720-1752302240728.json": {
+      "uid": "windows-enhanced-001",
+      "title": "Windows-Enigma-R720", 
+      "description": "Enhanced comprehensive monitoring dashboard for Windows Server",
+      "tags": ["windows", "server", "performance", "monitoring", "enhanced"]
+    }
+  },
+  "naming_conventions": {
+    "patterns": {
+      "timestamp_suffix": "Files ending with timestamp (e.g., -1752302186913.json)",
+      "descriptive_name": "Preferred: descriptive-name-version.json"
+    },
+    "recommendations": [
+      "Use descriptive filenames that match the dashboard title",
+      "Avoid timestamps in filenames for better maintainability", 
+      "Use lowercase with hyphens for consistency",
+      "Include version numbers when appropriate"
+    ]
+  }
+}

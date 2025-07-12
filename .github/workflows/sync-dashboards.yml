@@ -149,20 +149,55 @@ jobs:
           }
         }
 
+        async function loadDashboardMapping() {
+          try {
+            if (await fs.pathExists('dashboard-mapping.json')) {
+              return await fs.readJSON('dashboard-mapping.json');
+            }
+          } catch (error) {
+            console.log('ℹ️ No dashboard mapping file found, using defaults');
+          }
+          return { mappings: {} };
+        }
+
         async function syncDashboard(filePath) {
           try {
             console.log(`\n🔄 Syncing dashboard: ${filePath}`);
             
             const dashboardContent = await fs.readJSON(filePath);
+            const fileName = path.basename(filePath);
+            const mapping = await loadDashboardMapping();
+            
+            // Store original values for logging
+            const originalTitle = dashboardContent.title;
+            const originalUid = dashboardContent.uid;
             
             // Remove id and version for import
             delete dashboardContent.id;
             delete dashboardContent.version;
             
-            // Ensure the dashboard has a UID
+            // Ensure the dashboard has a UID - priority order:
+            // 1. Existing UID in dashboard JSON
+            // 2. UID from mapping file
+            // 3. Generated from filename
             if (!dashboardContent.uid) {
-              const fileName = path.basename(filePath, '.json');
-              dashboardContent.uid = fileName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+              if (mapping.mappings[fileName] && mapping.mappings[fileName].uid) {
+                dashboardContent.uid = mapping.mappings[fileName].uid;
+                console.log(`📋 Using mapped UID: ${dashboardContent.uid}`);
+              } else {
+                const fileNameWithoutExt = path.basename(filePath, '.json');
+                dashboardContent.uid = fileNameWithoutExt.toLowerCase().replace(/[^a-z0-9]/g, '-');
+                console.log(`🔧 Generated UID from filename: ${dashboardContent.uid}`);
+              }
+            } else {
+              console.log(`✅ Using existing UID: ${dashboardContent.uid}`);
+            }
+            
+            // Validate UID format
+            if (!/^[a-z0-9-_]+$/.test(dashboardContent.uid)) {
+              console.log(`⚠️ UID contains invalid characters: ${dashboardContent.uid}`);
+              dashboardContent.uid = dashboardContent.uid.toLowerCase().replace(/[^a-z0-9-_]/g, '-');
+              console.log(`🔧 Sanitized UID: ${dashboardContent.uid}`);
             }
 
             // Get or create folder

@@ -66,15 +66,42 @@ Configure the following secrets in your GitHub repository (`Settings` → `Secre
 
 #### Dashboard Naming Convention
 
-Use descriptive filenames that include:
-- System/service name
-- Timestamp or version (optional)
-- `.json` extension
+The workflow supports different approaches for mapping filenames to dashboard UIDs:
 
-Examples:
-- `windows-server-monitoring.json`
+**1. Dashboard UID Priority (Recommended)**
+The sync process uses this priority order:
+1. **Existing UID in dashboard JSON** (primary method)
+2. **UID from mapping file** (`dashboard-mapping.json`)
+3. **Generated from filename** (fallback)
+
+**2. Current Dashboard Mapping**
+Your existing dashboards are mapped as follows:
+
+| Filename | Dashboard UID | Dashboard Title |
+|----------|---------------|-----------------|
+| `DSM918+-1752302186913.json` | `enhanced-synology-nas` | DSM918+ |
+| `Ubuntu-R630-1752302225577.json` | `enhanced-ubuntu-server` | Ubuntu-R630 |
+| `Windows-Enigma-R720-1752302240728.json` | `windows-enhanced-001` | Windows-Enigma-R720 |
+
+**3. Filename Best Practices**
+For new dashboards, use descriptive filenames:
+- `synology-nas-monitoring.json`
+- `ubuntu-server-performance.json`
+- `windows-server-metrics.json`
 - `kubernetes-cluster-overview.json`
-- `application-performance-v2.json`
+
+**4. Dashboard Mapping File**
+The `dashboard-mapping.json` file provides explicit filename-to-UID mapping:
+```json
+{
+  "mappings": {
+    "your-dashboard-file.json": {
+      "uid": "preferred-dashboard-uid",
+      "title": "Dashboard Display Name"
+    }
+  }
+}
+```
 
 ## 🔄 Workflow Triggers
 
