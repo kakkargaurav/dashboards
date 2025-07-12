@@ -1,0 +1,291 @@
+name: Sync Grafana Dashboards
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'dashboards/**'
+  schedule:
+    # Run every 30 minutes
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      force_sync:
+        description: 'Force sync all dashboards'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+  GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+  GRAFANA_ORG_ID: ${{ secrets.GRAFANA_ORG_ID || '1' }}
+
+jobs:
+  sync-dashboards:
+    runs-on: self-hosted
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Install dependencies
+      run: |
+        npm init -y
+        npm install axios fs-extra glob
+
+    - name: Validate environment variables
+      run: |
+        if [ -z "$GRAFANA_URL" ]; then
+          echo "❌ GRAFANA_URL secret is not set"
+          exit 1
+        fi
+        if [ -z "$GRAFANA_API_KEY" ]; then
+          echo "❌ GRAFANA_API_KEY secret is not set"
+          exit 1
+        fi
+        echo "✅ Environment variables validated"
+
+    - name: Validate dashboard JSON files
+      run: |
+        echo "🔍 Validating dashboard JSON files..."
+        find dashboards -name "*.json" -type f | while read file; do
+          echo "Validating: $file"
+          if ! jq empty "$file" 2>/dev/null; then
+            echo "❌ Invalid JSON in $file"
+            exit 1
+          fi
+          echo "✅ Valid JSON: $file"
+        done
+
+    - name: Get changed files
+      id: changed-files
+      run: |
+        if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.event.inputs.force_sync }}" != "true" ]; then
+          # Get changed dashboard files from the last commit
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD -- dashboards/ | grep '\.json$' || true)
+        else
+          # For scheduled runs or manual force sync, sync all files
+          CHANGED_FILES=$(find dashboards -name "*.json" -type f)
+        fi
+        
+        if [ -z "$CHANGED_FILES" ]; then
+          echo "No dashboard files to sync"
+          echo "changed_files=" >> $GITHUB_OUTPUT
+        else
+          echo "Files to sync:"
+          echo "$CHANGED_FILES"
+          # Convert to space-separated list for the sync script
+          CHANGED_FILES_LIST=$(echo "$CHANGED_FILES" | tr '\n' ' ')
+          echo "changed_files=$CHANGED_FILES_LIST" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create sync script
+      run: |
+        cat > sync-dashboards.js << 'EOF'
+        const axios = require('axios');
+        const fs = require('fs-extra');
+        const path = require('path');
+        const glob = require('glob');
+
+        const GRAFANA_URL = process.env.GRAFANA_URL;
+        const GRAFANA_API_KEY = process.env.GRAFANA_API_KEY;
+        const GRAFANA_ORG_ID = process.env.GRAFANA_ORG_ID || '1';
+
+        // Configure axios with default headers
+        const grafanaAPI = axios.create({
+          baseURL: GRAFANA_URL,
+          headers: {
+            'Authorization': `Bearer ${GRAFANA_API_KEY}`,
+            'Content-Type': 'application/json',
+            'X-Grafana-Org-Id': GRAFANA_ORG_ID
+          }
+        });
+
+        async function validateConnection() {
+          try {
+            const response = await grafanaAPI.get('/api/health');
+            console.log('✅ Grafana connection successful');
+            return true;
+          } catch (error) {
+            console.error('❌ Failed to connect to Grafana:', error.message);
+            return false;
+          }
+        }
+
+        async function getFolders() {
+          try {
+            const response = await grafanaAPI.get('/api/folders');
+            return response.data;
+          } catch (error) {
+            console.error('Failed to get folders:', error.message);
+            return [];
+          }
+        }
+
+        async function createFolder(title) {
+          try {
+            const response = await grafanaAPI.post('/api/folders', {
+              title: title,
+              uid: title.toLowerCase().replace(/[^a-z0-9]/g, '-')
+            });
+            console.log(`✅ Created folder: ${title}`);
+            return response.data;
+          } catch (error) {
+            if (error.response && error.response.status === 409) {
+              console.log(`📁 Folder already exists: ${title}`);
+              return null;
+            }
+            console.error(`❌ Failed to create folder ${title}:`, error.message);
+            throw error;
+          }
+        }
+
+        async function syncDashboard(filePath) {
+          try {
+            console.log(`\n🔄 Syncing dashboard: ${filePath}`);
+            
+            const dashboardContent = await fs.readJSON(filePath);
+            
+            // Remove id and version for import
+            delete dashboardContent.id;
+            delete dashboardContent.version;
+            
+            // Ensure the dashboard has a UID
+            if (!dashboardContent.uid) {
+              const fileName = path.basename(filePath, '.json');
+              dashboardContent.uid = fileName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+            }
+
+            // Get or create folder
+            let folderId = null;
+            const folders = await getFolders();
+            const dashboardsFolder = folders.find(f => f.title === 'Dashboards');
+            
+            if (!dashboardsFolder) {
+              const newFolder = await createFolder('Dashboards');
+              if (newFolder) {
+                folderId = newFolder.id;
+              }
+            } else {
+              folderId = dashboardsFolder.id;
+            }
+
+            // Prepare dashboard for import
+            const importPayload = {
+              dashboard: dashboardContent,
+              folderId: folderId,
+              overwrite: true,
+              message: `Synced from GitHub at ${new Date().toISOString()}`
+            };
+
+            const response = await grafanaAPI.post('/api/dashboards/db', importPayload);
+            
+            if (response.data.status === 'success') {
+              console.log(`✅ Successfully synced: ${dashboardContent.title || filePath}`);
+              console.log(`   URL: ${GRAFANA_URL}/d/${response.data.uid}`);
+              return true;
+            } else {
+              console.error(`❌ Failed to sync ${filePath}:`, response.data.message);
+              return false;
+            }
+            
+          } catch (error) {
+            console.error(`❌ Error syncing ${filePath}:`, error.message);
+            if (error.response) {
+              console.error('Response data:', error.response.data);
+            }
+            return false;
+          }
+        }
+
+        async function main() {
+          console.log('🚀 Starting Grafana dashboard sync...');
+          
+          // Validate connection
+          if (!(await validateConnection())) {
+            process.exit(1);
+          }
+
+          // Get files to sync
+          const filesToSync = process.argv.slice(2);
+          
+          if (filesToSync.length === 0) {
+            console.log('ℹ️ No files specified, syncing all dashboard files...');
+            const allFiles = glob.sync('dashboards/**/*.json');
+            filesToSync.push(...allFiles);
+          }
+
+          if (filesToSync.length === 0) {
+            console.log('ℹ️ No dashboard files found to sync');
+            return;
+          }
+
+          console.log(`📊 Found ${filesToSync.length} dashboard(s) to sync`);
+
+          let successCount = 0;
+          let errorCount = 0;
+
+          for (const file of filesToSync) {
+            if (await syncDashboard(file)) {
+              successCount++;
+            } else {
+              errorCount++;
+            }
+          }
+
+          console.log(`\n📈 Sync completed:`);
+          console.log(`   ✅ Successful: ${successCount}`);
+          console.log(`   ❌ Failed: ${errorCount}`);
+
+          if (errorCount > 0) {
+            process.exit(1);
+          }
+        }
+
+        main().catch(error => {
+          console.error('💥 Unexpected error:', error);
+          process.exit(1);
+        });
+        EOF
+
+    - name: Sync dashboards to Grafana
+      if: steps.changed-files.outputs.changed_files != ''
+      run: |
+        FILES="${{ steps.changed-files.outputs.changed_files }}"
+        if [ -n "$FILES" ]; then
+          echo "🔄 Syncing dashboards: $FILES"
+          node sync-dashboards.js $FILES
+        else
+          echo "ℹ️ No files to sync"
+        fi
+
+    - name: Create sync summary
+      if: always()
+      run: |
+        echo "## 📊 Dashboard Sync Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ steps.changed-files.outputs.changed_files }}" != "" ]; then
+          echo "**Files processed:**" >> $GITHUB_STEP_SUMMARY
+          for file in ${{ steps.changed-files.outputs.changed_files }}; do
+            echo "- \`$file\`" >> $GITHUB_STEP_SUMMARY
+          done
+        else
+          echo "**Result:** No dashboard files to sync" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Grafana URL:** ${{ env.GRAFANA_URL }}" >> $GITHUB_STEP_SUMMARY

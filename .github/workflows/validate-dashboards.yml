@@ -1,0 +1,92 @@
+name: Validate Dashboard JSON
+
+on:
+  pull_request:
+    paths:
+      - 'dashboards/**'
+  push:
+    branches-ignore:
+      - main
+    paths:
+      - 'dashboards/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install jq
+      run: sudo apt-get update && sudo apt-get install -y jq
+
+    - name: Validate JSON files
+      run: |
+        echo "🔍 Validating dashboard JSON files..."
+        EXIT_CODE=0
+        
+        find dashboards -name "*.json" -type f | while read file; do
+          echo "Validating: $file"
+          
+          # Check JSON syntax
+          if ! jq empty "$file" 2>/dev/null; then
+            echo "❌ Invalid JSON syntax in $file"
+            EXIT_CODE=1
+            continue
+          fi
+          
+          # Check required fields
+          TITLE=$(jq -r '.title // empty' "$file")
+          if [ -z "$TITLE" ]; then
+            echo "❌ Missing 'title' field in $file"
+            EXIT_CODE=1
+            continue
+          fi
+          
+          # Check for panels
+          PANELS_COUNT=$(jq '.panels | length // 0' "$file")
+          if [ "$PANELS_COUNT" -eq 0 ]; then
+            echo "⚠️  No panels found in $file"
+          fi
+          
+          echo "✅ Valid dashboard: $TITLE ($PANELS_COUNT panels)"
+        done
+        
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "❌ Validation failed"
+          exit 1
+        fi
+        
+        echo "✅ All dashboard files are valid"
+
+    - name: Check file naming convention
+      run: |
+        echo "📋 Checking file naming conventions..."
+        
+        find dashboards -name "*.json" -type f | while read file; do
+          filename=$(basename "$file")
+          
+          # Check for reasonable filename (no spaces, special chars except dash/underscore)
+          if [[ ! "$filename" =~ ^[a-zA-Z0-9._-]+\.json$ ]]; then
+            echo "⚠️  Consider renaming '$filename' to follow naming convention (alphanumeric, dash, underscore only)"
+          else
+            echo "✅ Good filename: $filename"
+          fi
+        done
+
+    - name: Generate validation summary
+      run: |
+        TOTAL_FILES=$(find dashboards -name "*.json" -type f | wc -l)
+        
+        echo "## 📊 Dashboard Validation Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Total dashboard files**: $TOTAL_FILES" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Files validated**:" >> $GITHUB_STEP_SUMMARY
+        
+        find dashboards -name "*.json" -type f | while read file; do
+          TITLE=$(jq -r '.title // "Untitled"' "$file")
+          PANELS_COUNT=$(jq '.panels | length // 0' "$file")
+          echo "- \`$(basename "$file")\` - $TITLE ($PANELS_COUNT panels)" >> $GITHUB_STEP_SUMMARY
+        done
