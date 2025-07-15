@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "Enhanced Synology Dashboard with comprehensive monitoring using snmp.yml - includes UPS, iSCSI, SMART data, and advanced storage metrics",
+  "description": "Enhanced Synology Dashboard with monitoring using snmp.yml - includes UPS, iSCSI, SMART data, and advanced storage metrics",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
