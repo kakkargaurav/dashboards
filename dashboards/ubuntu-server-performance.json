@@ -590,7 +590,7 @@
             "uid": "aer76h1rrnbb4f"
           },
           "editorMode": "code",
-          "expr": "rate(node_network_receive_bytes_total{device!=\"lo\",job=~'$job',instance=~'$instance:.*'}[5m]) + rate(node_network_transmit_bytes_total{device!=\"lo\",job=~'$job',instance=~'$instance:.*'}[5m])",
+          "expr": "sum(\n  rate(node_network_receive_bytes_total{device!=\"lo\", job=~\"$job\", instance=~\"$instance:.*\"}[5m])\n+ rate(node_network_transmit_bytes_total{device!=\"lo\", job=~\"$job\", instance=~\"$instance:.*\"}[5m])\n) by (instance)",
           "legendFormat": "",
           "range": true,
           "refId": "A"
@@ -2077,6 +2077,120 @@
         "type": "prometheus",
         "uid": "aer76h1rrnbb4f"
       },
+      "description": "Framebuffer memory usage",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "deckbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 3,
+        "y": 47
+      },
+      "id": 33,
+      "options": {
+        "legend": {
+          "calcs": [
+            "min",
+            "max",
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "aer76h1rrnbb4f"
+          },
+          "editorMode": "code",
+          "expr": "DCGM_FI_DEV_FB_FREE{instance=~'$instance:.*'}",
+          "legendFormat": "Free",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "aer76h1rrnbb4f"
+          },
+          "editorMode": "code",
+          "expr": "DCGM_FI_DEV_FB_USED{instance=~'$instance:.*'}",
+          "hide": false,
+          "legendFormat": "Used",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Framebuffer Memory Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "aer76h1rrnbb4f"
+      },
       "description": "Memory temperature",
       "fieldConfig": {
         "defaults": {
@@ -2141,7 +2255,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 47
+        "y": 55
       },
       "id": 26,
       "options": {
@@ -2247,7 +2361,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 47
+        "y": 55
       },
       "id": 27,
       "options": {
@@ -2353,7 +2467,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 55
+        "y": 63
       },
       "id": 28,
       "options": {
@@ -2461,7 +2575,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 55
+        "y": 63
       },
       "id": 29,
       "options": {
@@ -2569,7 +2683,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 63
+        "y": 71
       },
       "id": 30,
       "options": {
@@ -2677,7 +2791,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 63
+        "y": 71
       },
       "id": 31,
       "options": {
@@ -2785,7 +2899,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 71
+        "y": 79
       },
       "id": 32,
       "options": {
@@ -2820,120 +2934,6 @@
         }
       ],
       "title": "Decoder Utilization",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "aer76h1rrnbb4f"
-      },
-      "description": "Framebuffer memory usage",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "deckbytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 3,
-        "y": 43
-      },
-      "id": 33,
-      "options": {
-        "legend": {
-          "calcs": [
-            "min",
-            "max",
-            "lastNotNull"
-          ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.0.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "aer76h1rrnbb4f"
-          },
-          "editorMode": "code",
-          "expr": "DCGM_FI_DEV_FB_FREE{instance=~'$instance:.*'}",
-          "legendFormat": "Free",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "aer76h1rrnbb4f"
-          },
-          "editorMode": "code",
-          "expr": "DCGM_FI_DEV_FB_USED{instance=~'$instance:.*'}",
-          "hide": false,
-          "legendFormat": "Used",
-          "range": true,
-          "refId": "B"
-        }
-      ],
-      "title": "Framebuffer Memory Usage",
       "type": "timeseries"
     },
     {
@@ -3012,7 +3012,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 71
+        "y": 79
       },
       "id": 34,
       "options": {
@@ -3129,5 +3129,5 @@
   "timezone": "",
   "title": "Ubuntu-R630",
   "uid": "enhanced-ubuntu-server",
-  "version": 3
+  "version": 86
 }
