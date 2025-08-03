@@ -1,3 +1,5 @@
+
+[![Sync Grafana Dashboards](https://github.com/kakkargaurav/dashboards/actions/workflows/sync-dashboards.yml/badge.svg)](https://github.com/kakkargaurav/dashboards/actions/workflows/sync-dashboards.yml)
 # Grafana Dashboards Repository
 
 This repository contains Grafana dashboard configurations stored as JSON files with automated synchronization to Grafana instances using GitHub Actions.
